@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Thrift Market</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <nav class="bg-emerald-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold">🛒 Campus Thrift</h1>
+            <div class="space-x-4">
+                <a href="market.html" class="underline font-semibold">Buy</a>
+                <a href="sell.html" class="hover:underline">Sell Item</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Filters and Control Dashboard -->
+    <main class="flex-grow container mx-auto px-4 py-6 max-w-6xl">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 flex flex-col gap-4 md:flex-row md:items-center justify-between">
+            
+            <!-- Real-time Text Search -->
+            <div class="flex-1 min-w-[250px]">
+                <input type="text" id="searchInput" placeholder="Search textbooks, electronics, cycles..." 
+                       class="w-full p-2 border border-gray-300 rounded-md text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <!-- Complex Controls Component Grid -->
+            <div class="flex flex-wrap gap-3 items-center">
+                <!-- Category Filter -->
+                <select id="categoryFilter" class="p-2 border border-gray-300 rounded-md text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="All">All Categories</option>
+                    <option value="Textbooks">Textbooks</option>
+                    <option value="Electronics">Electronics</option>
+                    <option value="Lab & Draughting">Lab & Draughting</option>
+                    <option value="Hostel Essentials">Hostel Essentials</option>
+                </select>
+
+                <!-- Bonus: Sort System Selection -->
+                <select id="sortSelect" class="p-2 border border-gray-300 rounded-md text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="newest">Date: Newest First</option>
+                    <option value="priceAsc">Price: Low to High</option>
+                    <option value="priceDesc">Price: High to Low</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Listings Grid View -->
+        <div id="listingsGrid" class="grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <!-- Dynamic listing objects compile here via JS -->
+        </div>
+    </main>
+
+    <!-- Interactive Item Detail Overlay Modal -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl relative border border-gray-100">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold cursor-pointer">&times;</button>
+            
+            <div id="modalContent">
+                <!-- Data injection point -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Business Engine Script -->
+    <script>
+        // Seed default template data if localStorage is pristine
+        if (!localStorage.getItem('marketItems')) {
+            const seedData = [
+                { id: 1, title: "Engineering Physics Textbook", category: "Textbooks", price: 350, contact: "9876543210", description: "Author: Gaur & Gupta. Perfect condition, zero annotations.", date: Date.now() - 86400000, sold: false },
+                { id: 2, title: "Scientific Calculator fx-991EX", category: "Electronics", price: 800, contact: "9123456789", description: "Matrix and vector calculations supported. Battery running strong.", date: Date.now() - 3600000, sold: false }
+            ];
+            localStorage.setItem('marketItems', JSON.stringify(seedData));
+        }
+
+        const grid = document.getElementById('listingsGrid');
+        const searchInput = document.getElementById('searchInput');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const sortSelect = document.getElementById('sortSelect');
+
+        function renderMarket() {
+            const items = JSON.parse(localStorage.getItem('marketItems')) || [];
+            const searchQuery = searchInput.value.toLowerCase().trim();
+            const targetCategory = categoryFilter.value;
+            const targetSort = sortSelect.value;
+
+            grid.innerHTML = '';
+
+            // 1. Run Pipeline Filters
+            let records = items.filter(item => {
+                const matchesSearch = item.title.toLowerCase().includes(searchQuery) || item.description.toLowerCase().includes(searchQuery);
+                const matchesCategory = targetCategory === 'All' || item.category === targetCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            // 2. Process Sorting Rules
+            if (targetSort === 'newest') records.sort((a, b) => b.date - a.date);
+            if (targetSort === 'priceAsc') records.sort((a, b) => a.price - b.price);
+            if (targetSort === 'priceDesc') records.sort((a, b) => b.price - a.price);
+
+            // 3. Output Dynamic Nodes
+            if (records.length === 0) {
+                grid.innerHTML = `<p class="text-gray-400 text-center col-span-full py-12">No active store items match your query.</p>`;
+                return;
+            }
+
+            records.forEach(item => {
+                const card = document.createElement('div');
+                card.className = `bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative flex flex-col justify-between transition hover:shadow-md cursor-pointer group`;
+                card.setAttribute('onclick', `openModal(${item.id})`);
+                
+                card.innerHTML = `
+                    <div class="p-4">
+                        <div class="flex justify-between items-start gap-2 mb-2">
+                            <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded">${item.category}</span>
+                            <span class="text-xs text-gray-400 font-mono">${new Date(item.date).toLocaleDateString()}</span>
+                        </div>
+                        <h3 class="font-bold text-gray-800 group-hover:text-emerald-600 transition text-base line-clamp-2">${item.title}</h3>
+                        <p class="text-xs text-gray-500 mt-1 line-clamp-2">${item.description}</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                        <span class="text-lg font-extrabold text-gray-900">₹${item.price}</span>
+                        <span class="text-xs font-medium text-emerald-600 group-hover:underline">View details →</span>
+                    </div>
+                    ${item.sold ? `
+                    <div class="absolute inset-0 bg-white/80 flex items-center justify-center font-black text-red-600 text-xl tracking-widest transform rotate-12 uppercase select-none border-2 border-red-600 m-4 rounded shadow-sm">
+                        SOLD OUT
+                    </div>` : ''}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Modal Action Windows
+        function openModal(id) {
+            const items = JSON.parse(localStorage.getItem('marketItems')) || [];
+            const target = items.find(i => i.id === id);
+            if (!target) return;
+
+            const modal = document.getElementById('detailModal');
+            const content = document.getElementById('modalContent');
+
+            content.innerHTML = `
+                <div class="mb-4">
+                    <span class="text-xs font-bold px-2 py-1 bg-emerald-100 text-emerald-800 rounded uppercase tracking-wider">${target.category}</span>
+                </div>
+                <h2 class="text-2xl font-black text-gray-900 mb-2">${target.title}</h2>
+                <div class="text-3xl font-black text-emerald-600 mb-4">₹${target.price}</div>
+                
+                <div class="border-t border-b border-gray-100 py-3 my-4">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-1">Item Description</h4>
+                    <p class="text-gray-700 text-sm leading-relaxed">${target.description}</p>
+                </div>
+
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-6 flex justify-between items-center">
+                    <div>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400">Seller Contact</h4>
+                        <p class="text-gray-900 font-mono font-semibold text-base">${target.contact}</p>
+                    </div>
+                    <a href="tel:${target.contact}" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded font-bold transition">Call Seller</a>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="toggleSoldState(${target.id})" class="flex-grow bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold py-2.5 rounded-md transition cursor-pointer">
+                        ${target.sold ? 'Re-list Item (Mark Available)' : 'Mark item as Sold'}
+                    </button>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+
+        function toggleSoldState(id) {
+            let items = JSON.parse(localStorage.getItem('marketItems')) || [];
+            items = items.map(item => {
+                if (item.id === id) item.sold = !item.sold;
+                return item;
+            });
+            localStorage.setItem('marketItems', JSON.stringify(items));
+            closeModal();
+            renderMarket();
+        }
+
+        // Component Event Listeners
+        searchInput.addEventListener('input', renderMarket);
+        categoryFilter.addEventListener('change', renderMarket);
+        sortSelect.addEventListener('change', renderMarket);
+        window.addEventListener('DOMContentLoaded', renderMarket);
+    </script>
+</body>
+</html>
